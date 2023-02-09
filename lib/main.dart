@@ -1,115 +1,272 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:syncfusion_flutter_calendar/calendar.dart';
+import 'package:googleapis/calendar/v3.dart' hide Colors;
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:googleapis_auth/googleapis_auth.dart';
+import 'package:http/http.dart';
+import 'package:http/io_client.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  //アプリ実行前にFlutterアプリの機能を利用する場合に宣言(初期化のような動き)
+  WidgetsFlutterBinding.ensureInitialized();
+  //Firebaseのパッケージを呼び出し
+  FirebaseOptions options = FirebaseOptions(
+      apiKey: "AIzaSyDBqS4vmOGPBSOkIz_2ZhiszV1jwq04wmI",
+      appId: "1:865203455735:android:214af25c2c81f4c1da35f2",
+      messagingSenderId: "865203455735",
+      projectId: "navigator-c97c9");
+
+  //await ・・・非同期処理が完了するまで待ち、その非同期処理の結果を取り出してくれる
+  //awaitを付与したら asyncも付与する
+  await Firebase.initializeApp(options: options);
+  runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+//Stateless ・・・状態を保持する（動的に変化しない）
+// Stateful  ・・・状態を保持しない（変化する）
+// overrride ・・・上書き
 
-  // This widget is the root of your application.
+// class FirstPage extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return MaterialApp(
+//       //作成ボタン、IDを入力する枠を作成
+//       title: 'カレンダー',
+//       home: MyHomePage(),
+//     );
+//   }
+// }
+
+class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      // localizationsDelegates: [
+      //   GlobalMaterialLocalizations.delegate,
+      //   GlobalWidgetsLocalizations.delegate,
+      //   GlobalCupertinoLocalizations.delegate,
+      // ],
+      // supportedLocales: [
+      //   Locale('ja'),
+      // ],
+      // locale: const Locale('ja'),
+
+      // アイコンやタスクバーの時の表示
+      title: 'カレンダー',
+      home: MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  //createState()でState（Stateを継承したクラス）を返す
+  _MyHomePageState createState() {
+    return _MyHomePageState();
+  }
 }
 
+//Stateをextendsしたクラスを作る
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  late AppointmentDataSource dataSource;
+  late CollectionReference cref;
+  final calendarController = CalendarController();
+  GoogleSignInAccount? currentUser;
+  final List<Color> eventColor = [Colors.red, Colors.green, Colors.yellow];
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: <String>[
+      CalendarApi.calendarScope,
+    ],
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    dataSource = getCalendarDataSource();
+    cref = FirebaseFirestore.instance.collection('calendar');
+
+    _googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount? account) {
+      setState(() {
+        currentUser = account;
+        //print('########## currentUserChanged ' + currentUser.toString() ?? 'NULL');
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+        appBar: AppBar(title: Text('カレンダー')), body: buildBody(context));
+  }
+
+  Widget buildBody(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: cref.snapshots(),
+      builder: (context, snapshot) {
+        //読み込んでいる間の表示
+        if (!snapshot.hasData) return LinearProgressIndicator();
+
+        print(
+            "##################################################### Firestore Access start");
+        snapshot.data!.docs.forEach((elem) {
+          print(elem.get('email').toString());
+          print(elem.get('start-time').toDate().toLocal().toString());
+          print(elem.get('end-time').toDate().toLocal().toString());
+          print(elem.get('subject').toString());
+        });
+        print(
+            "##################################################### Firestore Access end");
+
+        dataSource.appointments!.clear();
+
+        Map<String, Color> colorMap = new Map<String, Color>();
+        int colorSeq = 0;
+        snapshot.data!.docs.forEach((elem) {
+          if (!colorMap.containsKey(elem.get('email'))) {
+            colorMap[elem.get('email')] =
+            eventColor[colorSeq % eventColor.length];
+            colorSeq++;
+          }
+          dataSource.appointments!.add(Appointment(
+            startTime: elem.get('start-time').toDate().toLocal(),
+            endTime: elem.get('end-time').toDate().toLocal(),
+            //subject: elem.get('subject'),
+            startTimeZone: '',
+            endTimeZone: '',
+            color: colorMap[elem.get('email')] ?? Colors.black,
+          ));
+        });
+
+        print('############# colorMap');
+        print(colorMap);
+        print('############# colorMap');
+        // print(currentUser!.id);
+
+        dataSource.notifyListeners(
+            CalendarDataSourceAction.reset, dataSource.appointments!);
+
+        return Column(
+          children: [
+            //Expanded 高さを最大限に広げる
+            Expanded(
+              child: SfCalendar(
+                dataSource: dataSource,
+                view: CalendarView.week,
+                allowedViews: <CalendarView>[
+                  CalendarView.day,
+                  CalendarView.week,
+                  CalendarView.workWeek,
+                  CalendarView.month,
+                  CalendarView.timelineDay,
+                  CalendarView.timelineWeek,
+                  CalendarView.timelineWorkWeek,
+                  CalendarView.timelineMonth,
+                  CalendarView.schedule,
+                ],
+                initialSelectedDate: DateTime.now(),
+                controller: calendarController,
+              ),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
+
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              SizedBox(
+                width: 250,
+              ),
+              OutlinedButton(
+                onPressed: () async {
+                  List<Event> events = await getGoogleEventsData();
+
+                  if (currentUser == null) return;
+
+                  final QuerySnapshot userEvents = await cref
+                      .where('email', isEqualTo: currentUser!.email)
+                      .get();
+                  userEvents.docs.forEach((element) {
+                    cref.doc(element.id).delete();
+                  });
+
+                  events.forEach((element) {
+                    cref.add({
+                      'email': (currentUser!.email),
+                      'start-time': (element.start!.date ??
+                          element.start!.dateTime!.toLocal()),
+                      'end-time': (element.end!.date ??
+                          element.end!.dateTime!.toLocal()),
+                      'subject': (element.summary),
+                    });
+                  });
+                },
+                child: Text('予定登録'),
+              ),
+            ]),
           ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+        );
+      },
     );
   }
+
+  AppointmentDataSource getCalendarDataSource() {
+    List<Appointment> appointments = <Appointment>[];
+    return AppointmentDataSource(appointments);
+  }
+
+  Future<List<Event>> getGoogleEventsData() async {
+    //Googleサインイン1人目処理→同じような処理をすると2人目が出来そう
+    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+    print('#################################googleUser'+ googleUser.toString());
+    final GoogleAPIClient httpClient =
+    GoogleAPIClient(await googleUser!.authHeaders);
+    print('#################################httpClient');
+    final CalendarApi calendarAPI = CalendarApi(httpClient);
+    print('#################################calendarAPI');
+    final Events calEvents = await calendarAPI.events.list(
+      "primary",
+    );
+    print('#################################calEvents');
+    final List<Event> appointments = <Event>[];
+    if (calEvents != null) {
+      for (int i = 0; i < calEvents.items!.length; i++) {
+        final Event event = calEvents.items![i];
+        if (event.start == null) {
+          continue;
+        }
+
+        appointments.add(event);
+        print('#################################email---' +
+            (googleUser.email).toString());
+        print('#################################start-time---' +
+            (event.start!.date ?? event.start!.dateTime!.toLocal()).toString());
+        print('#################################end-time---' +
+            (event.end!.date ?? event.end!.dateTime!.toLocal()).toString());
+        print('#################################subject---' +
+            (event.summary).toString());
+      }
+    }
+    return appointments;
+  }
+}
+
+class AppointmentDataSource extends CalendarDataSource {
+  AppointmentDataSource(List<Appointment> source) {
+    appointments = source;
+  }
+}
+
+class GoogleAPIClient extends IOClient {
+  final Map<String, String> _headers;
+
+  GoogleAPIClient(this._headers) : super();
+
+  @override
+  Future<IOStreamedResponse> send(BaseRequest request) =>
+      super.send(request..headers.addAll(_headers));
+
+  @override
+  Future<Response> head(Uri url, {Map<String, String>? headers}) =>
+      super.head(url,
+          headers: (headers != null ? (headers..addAll(_headers)) : headers));
 }
