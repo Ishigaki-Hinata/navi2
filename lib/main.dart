@@ -169,6 +169,10 @@ class _MyHomePageState extends State<MyHomePage> {
                 ],
                 initialSelectedDate: DateTime.now(),
                 controller: calendarController,
+                monthViewSettings: MonthViewSettings(
+                  appointmentDisplayMode:
+                  MonthAppointmentDisplayMode.appointment,
+                ),
               ),
             ),
 
