@@ -29,17 +29,6 @@ void main() async {
 // Stateful  ・・・状態を保持しない（変化する）
 // overrride ・・・上書き
 
-// class FirstPage extends StatelessWidget {
-//   @override
-//   Widget build(BuildContext context) {
-//     return MaterialApp(
-//       //作成ボタン、IDを入力する枠を作成
-//       title: 'カレンダー',
-//       home: MyHomePage(),
-//     );
-//   }
-// }
-
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -56,7 +45,46 @@ class MyApp extends StatelessWidget {
 
       // アイコンやタスクバーの時の表示
       title: 'カレンダー',
-      home: MyHomePage(),
+      home: FirstPage(),
+    );
+  }
+}
+
+class FirstPage extends StatelessWidget {
+  late String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('スケジュール共有'),
+      ),
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            child: TextField(decoration: InputDecoration(
+              hintText: 'カレンダー名',
+            ),
+              onChanged: (text) {
+                name = text;
+              },
+            ),
+          ),
+          Container(
+            child: TextButton(
+              child: Text("カレンダーへ"),
+              onPressed: () async{
+                await FirebaseFirestore.instance.collection('calendars').doc().collection('calendar').doc().set(
+                    {'email': 'sample','start-time':DateTime.now(), 'end-time':DateTime.now().add(const Duration(hours: 1)), 'subject':'today'}
+                );
+                await Navigator.push(context,
+                    MaterialPageRoute(builder: (context) => MyHomePage()));
+              },
+            ),
+          ),
+        ],
+      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
@@ -73,6 +101,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   late AppointmentDataSource dataSource;
   late CollectionReference cref;
+
   final calendarController = CalendarController();
   GoogleSignInAccount? currentUser;
   final List<Color> eventColor = [Colors.red, Colors.green, Colors.yellow];
@@ -87,7 +116,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     dataSource = getCalendarDataSource();
-    cref = FirebaseFirestore.instance.collection('calendar');
+    cref = FirebaseFirestore.instance.collection('calendars').doc().collection('calendar');
 
     _googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount? account) {
       setState(() {
@@ -100,7 +129,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: Text('カレンダー')), body: buildBody(context));
+        appBar: AppBar(title: Text('スケジュール共有')), body: buildBody(context));
   }
 
   Widget buildBody(BuildContext context) {
