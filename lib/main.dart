@@ -50,8 +50,18 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class FirstPage extends StatelessWidget {
-  late String name;
+class FirstPage extends StatefulWidget {
+
+  @override
+  //createState()でState（Stateを継承したクラス）を返す
+  _FirstPageState createState() {
+    return _FirstPageState();
+  }
+}
+
+class _FirstPageState extends State<FirstPage> {
+  late int calID;
+  final TextEditingController _controller = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -63,23 +73,49 @@ class FirstPage extends StatelessWidget {
         children: [
           Container(
             width: double.infinity,
-            child: TextField(decoration: InputDecoration(
-              hintText: 'カレンダー名',
+            child: TextField(
+              controller: _controller,
+              decoration: InputDecoration(
+              hintText: 'カレンダーID',
             ),
               onChanged: (text) {
-                name = text;
+                calID = int.parse(text);
+                print("########## onChanged ID: " + calID.toString());
               },
             ),
           ),
           Container(
             child: TextButton(
               child: Text("カレンダーへ"),
-              onPressed: () async{
-                await FirebaseFirestore.instance.collection('calendars').doc().collection('calendar').doc().set(
+              onPressed: () async {
+                await Navigator.push(context,
+                    MaterialPageRoute(
+                        builder: (context) => MyHomePage(value: calID)));
+              },
+            ),
+          ),
+          Container(
+            child: Text('カレンダーID：'),
+          ),
+          Container(
+            child: TextButton(
+              child: Text("新規作成"),
+              onPressed: () async {
+                final collectionRef = await FirebaseFirestore.instance.collection('calendars');
+                final querySnapshot = await collectionRef.get();
+                final queryDocSnapshot = querySnapshot.docs;
+                querySnapshot.docs.forEach((element) {
+                  print('#############' + element.data().toString());
+                });
+                // print('#############' + querySnapshot.docs[1].toString());
+                setState((){
+                  calID = queryDocSnapshot.length;
+                  _controller.text =calID.toString();
+                });
+                print('#############' + calID.toString());
+                await FirebaseFirestore.instance.collection('calendars').doc(calID.toString()).collection('calendar').doc().set(
                     {'email': 'sample','start-time':DateTime.now(), 'end-time':DateTime.now().add(const Duration(hours: 1)), 'subject':'today'}
                 );
-                await Navigator.push(context,
-                    MaterialPageRoute(builder: (context) => MyHomePage()));
               },
             ),
           ),
@@ -90,15 +126,22 @@ class FirstPage extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
+  final int value;
+
+  const MyHomePage({Key? key, required this.value}) : super(key: key);
+
   @override
   //createState()でState（Stateを継承したクラス）を返す
   _MyHomePageState createState() {
+    print("########## MyHomePage value: " + value.toString());
+
     return _MyHomePageState();
   }
 }
 
 //Stateをextendsしたクラスを作る
 class _MyHomePageState extends State<MyHomePage> {
+  late int state = widget.value;
   late AppointmentDataSource dataSource;
   late CollectionReference cref;
 
@@ -116,7 +159,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     dataSource = getCalendarDataSource();
-    cref = FirebaseFirestore.instance.collection('calendars').doc().collection('calendar');
+    cref = FirebaseFirestore.instance.collection('calendars').doc(state.toString()).collection('calendar');
 
     _googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount? account) {
       setState(() {
@@ -128,8 +171,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    print("########## MyHomePageState state: " + state.toString());
     return Scaffold(
-        appBar: AppBar(title: Text('スケジュール共有')), body: buildBody(context));
+        appBar: AppBar(title: Text('スケジュール共有( '+ state.toString() + ')')), body: buildBody(context));
   }
 
   Widget buildBody(BuildContext context) {
